@@ -13,21 +13,24 @@ func checkError(err error) {
 }
 
 func handleConnection(conn net.Conn) {
-	requestMessage := getRequestMessage(conn)
-	requestMessage.printHeader()
-
-	responseMessage := ResponseMessage{}
-	responseMessage.header = ResponseHeader{
-		correlationID: requestMessage.header.correlationID,
+	defer conn.Close()
+	for {
+		requestMessage := getRequestMessage(conn)
+		requestMessage.printHeader()
+	
+		responseMessage := ResponseMessage{}
+		responseMessage.header = ResponseHeader{
+			correlationID: requestMessage.header.correlationID,
+		}
+	
+		if err := requestMessage.header.validate(); err != NONE {
+			responseMessage.errorCode = UNSUPPORTED_VERSION
+		}
+	
+		responseMessage.body = NewResponseBody(requestMessage.header.requestApiKey)
+		serializedResponseMessage := responseMessage.serialize()
+		sendResponse(conn, serializedResponseMessage)
 	}
-
-	if err := requestMessage.header.validate(); err != NONE {
-		responseMessage.errorCode = UNSUPPORTED_VERSION
-	}
-
-	responseMessage.body = NewResponseBody(requestMessage.header.requestApiKey)
-	serializedResponseMessage := responseMessage.serialize()
-	sendResponse(conn, serializedResponseMessage)
 }
 
 func main() {
@@ -37,13 +40,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	conn, err := l.Accept()
-	if err != nil {
-		fmt.Println("Error accepting connection: ", err.Error())
-		os.Exit(1)
-	}
-
 	for {
-		handleConnection(conn)
+		conn, err := l.Accept()
+		if err != nil {
+			fmt.Println("Error accepting connection: ", err.Error())
+			continue
+		}
+		go handleConnection(conn)
 	}
 }
