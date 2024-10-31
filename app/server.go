@@ -18,19 +18,19 @@ func checkError(err error) {
 	}
 }
 
-func getRequestBody(conn net.Conn) []byte {
-	sizeBytes := make([]byte, 4)
-	_, err := io.ReadFull(conn, sizeBytes)
-	checkError(err)
+// func getRequestBody(conn net.Conn) []byte {
+// 	sizeBytes := make([]byte, 4)
+// 	_, err := io.ReadFull(conn, sizeBytes)
+// 	checkError(err)
 
- 	size := int(binary.BigEndian.Uint32(sizeBytes))
+//  	size := int(binary.BigEndian.Uint32(sizeBytes))
 
-	data := make([]byte, size)
-	_, err = io.ReadFull(conn, data)
-	checkError(err)
+// 	data := make([]byte, size)
+// 	_, err = io.ReadFull(conn, data)
+// 	checkError(err)
 
-	return data
-}
+// 	return data
+// }
 
 func sendResponse(conn net.Conn, responseMessage []byte) {
 	fmt.Println("Sending:", responseMessage)
