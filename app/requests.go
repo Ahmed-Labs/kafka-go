@@ -9,28 +9,45 @@ import (
 
 type RequestHeader struct {
 	size              int
-	requestApiKey     int16
+	requestApiKey     ApiKey
 	requestApiVersion int16
 	correlationID     int32
 	clientID          string
 }
 
+type RequestBody interface {
+	deserialize([]byte)
+}
+
 type RequestMessage struct {
 	header RequestHeader
+	body   RequestBody
 }
 
-func (h RequestHeader) validate() ErrorCode {
-	if !(int(h.requestApiVersion) >= 0 && int(h.requestApiVersion) <= 4) {
-		return UNSUPPORTED_VERSION
+func getRequestBody(apiKey ApiKey) RequestBody {
+	switch apiKey {
+	case DESCRIBE_TOPIC_PARTITIONS:
+		return &DescribeTopicPartitionsRequest{}
+	default:
+		return nil
 	}
-	return NONE
 }
-
-func (h *RequestHeader) deserialize(header []byte) {
-	h.requestApiKey = int16(binary.BigEndian.Uint16(header[:2]))
+func (h *RequestHeader) deserialize(header []byte) int {
+	h.requestApiKey = ApiKey(binary.BigEndian.Uint16(header[:2]))
 	h.requestApiVersion = int16(binary.BigEndian.Uint16(header[2:4]))
 	h.correlationID = int32(binary.BigEndian.Uint32(header[4:8]))
-	h.clientID = string(header[8:])
+
+	clientIDLength := int(binary.BigEndian.Uint16(header[8:10]))
+	h.clientID = string(header[10 : 10+clientIDLength])
+
+	tagBufferLength := header[10+clientIDLength]
+	requestBodyIdx := 10 + clientIDLength + 1
+
+	if tagBufferLength != 0 {
+		requestBodyIdx += int(tagBufferLength)
+	}
+	// Returns index to the start of request body
+	return requestBodyIdx
 }
 
 func getRequestMessage(conn net.Conn) RequestMessage {
@@ -44,10 +61,16 @@ func getRequestMessage(conn net.Conn) RequestMessage {
 	checkError(err)
 
 	header := RequestHeader{size: size}
-	header.deserialize(data)
+	bodyIdx := header.deserialize(data)
+
+	body := getRequestBody(header.requestApiKey)
+	if body != nil {
+		body.deserialize(data[bodyIdx:])
+	}
 
 	return RequestMessage{
 		header: header,
+		body:   body,
 	}
 }
 

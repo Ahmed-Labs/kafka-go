@@ -22,14 +22,8 @@ func handleConnection(conn net.Conn) {
 		responseMessage.header = ResponseHeader{
 			correlationID: requestMessage.header.correlationID,
 		}
-
-		if err := requestMessage.header.validate(); err != NONE {
-			responseMessage.errorCode = err
-		}
-
-		responseMessage.body = NewResponseBody(requestMessage.header.requestApiKey)
-		serializedResponseMessage := responseMessage.serialize()
-		sendResponse(conn, serializedResponseMessage)
+		responseMessage.body = NewResponseBody(requestMessage)
+		sendResponse(conn, responseMessage)
 	}
 }
 

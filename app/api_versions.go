@@ -10,6 +10,7 @@ type ApiVersion struct {
 
 type ApiVersionsResponse struct {
 	apiVersions []ApiVersion
+	errorCode ErrorCode
 }
 
 type ApiKey int16
@@ -35,14 +36,25 @@ var SupportedApiVersions = []ApiVersion{
 func (r ApiVersionsResponse) serialize() []byte {
 	var body []byte
 
-	numApiVersions := len(r.apiVersions)
-	body = append(body, byte(numApiVersions+1))
+	// Set error code
+	body = binary.BigEndian.AppendUint16(body, uint16(r.errorCode))
+
+	numApiVersions := len(r.apiVersions)+1
+	body = append(body, byte(numApiVersions))
 
 	for _, version := range r.apiVersions {
 		body = binary.BigEndian.AppendUint16(body, uint16(version.ApiKey))
 		body = binary.BigEndian.AppendUint16(body, uint16(version.MinVersion))
 		body = binary.BigEndian.AppendUint16(body, uint16(version.MaxVersion))
-		body = append(body, 0) // Compact array tag buffer
+
+		// Compact array tag buffer
+		body = append(body, 0) 
 	}
+
+	// Throttle time
+	body = append(body, []byte{0, 0, 0, 0}...)
+
+	// Tag buffer
+	body = append(body, 0)
 	return body
 }

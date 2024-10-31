@@ -20,37 +20,82 @@ type SerializableResponse interface {
 	serialize() []byte
 }
 
-func NewResponseBody(apiKey int16) SerializableResponse {
+func NewResponseBody(req RequestMessage) SerializableResponse {
+	apiKey := req.header.requestApiKey
+	requestBody := req.body
+	requestHeader := req.header
+
 	switch apiKey {
-	case int16(API_VERSIONS):
-		return ApiVersionsResponse{apiVersions: SupportedApiVersions}
-	default:
-		return nil
+	case API_VERSIONS:
+		var err ErrorCode = NONE
+		v := requestHeader.requestApiVersion
+
+		for _, version := range(SupportedApiVersions) {
+			if version.ApiKey != apiKey {
+				continue
+			}
+			if !(v >= version.MinVersion && v <= version.MaxVersion) {
+				err = UNSUPPORTED_VERSION
+				break
+			}
+		}
+		return ApiVersionsResponse{
+			apiVersions: SupportedApiVersions,
+			errorCode: err,
+		}
+
+	case DESCRIBE_TOPIC_PARTITIONS:
+		reqBody := requestBody.(*DescribeTopicPartitionsRequest)
+		response := DescribeTopicPartitionsResponse{}
+
+		for _, topicName := range reqBody.TopicNames {
+			fmt.Println("Topic name: ", topicName, len(topicName))
+			details := TopicPartitionDetails{
+				errorCode:            UNKNOWN_TOPIC_OR_PARTITION,
+				topicName:            topicName,
+				topicID:              DEFAULT_TOPIC_ID,
+				isInternal:           false,
+				partitions:           []int{},
+				authorizedOperations: DEFAULT_AUTHORIZED_OPERATIONS,
+			}
+
+			if foundTopic, ok := GlobalTopics[topicName]; ok {
+				details.errorCode = NONE
+				details.topicID = foundTopic.ID
+				details.partitions = foundTopic.Partitions
+			}
+			response.TopicPartitions = append(response.TopicPartitions, details)
+		}
+		fmt.Println("Response topic partitions: ", response.TopicPartitions)
+		return response
 	}
+
+	return nil
 }
 
 func (rs ResponseHeader) serialize() []byte {
-	correlationID := make([]byte, 4)
-	binary.BigEndian.PutUint32(correlationID, uint32(rs.correlationID))
-	return correlationID
+	header := make([]byte, 4) 
+	binary.BigEndian.PutUint32(header, uint32(rs.correlationID))
+
+	// Extra byte for tag buffer
+	// header = append(header, 0)
+	return header
 }
 
 func (r ResponseMessage) serialize() []byte {
 	serializedHeader := r.header.serialize()
-	serializedBody := make([]byte, 2)
-
-	binary.BigEndian.PutUint16(serializedBody, uint16(r.errorCode))
+	serializedBody := []byte{}
 
 	if r.body != nil {
 		body := r.body.serialize()
 		serializedBody = append(serializedBody, body...)
 	}
 
-	serializedBody = append(serializedBody, []byte{0, 0, 0, 0}...) // Throttle time
-	serializedBody = append(serializedBody, 0)                     // Tag buffer
-
 	messageSize := len(serializedHeader) + len(serializedBody)
 	message := make([]byte, 4+messageSize) // messageSize itself is 4 bytes
+
+	fmt.Println("Header", serializedHeader)
+	fmt.Println("Body:", serializedBody)
 
 	binary.BigEndian.PutUint32(message, uint32(messageSize))
 	copy(message[4:], serializedHeader)
@@ -59,8 +104,9 @@ func (r ResponseMessage) serialize() []byte {
 	return message
 }
 
-func sendResponse(conn net.Conn, responseMessage []byte) {
-	fmt.Println("Sending:", responseMessage)
-	_, err := conn.Write(responseMessage)
+func sendResponse(conn net.Conn, responseMessage ResponseMessage) {
+	serializedMsg := responseMessage.serialize()
+	_, err := conn.Write(serializedMsg)
 	checkError(err)
+	fmt.Println("Sent:", serializedMsg)
 }
