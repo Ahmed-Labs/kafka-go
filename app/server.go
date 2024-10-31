@@ -24,7 +24,7 @@ func handleConnection(conn net.Conn) {
 		}
 
 		if err := requestMessage.header.validate(); err != NONE {
-			responseMessage.errorCode = UNSUPPORTED_VERSION
+			responseMessage.errorCode = err
 		}
 
 		responseMessage.body = NewResponseBody(requestMessage.header.requestApiKey)
