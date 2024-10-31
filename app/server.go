@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
-	"io"
 	"net"
 	"os"
 )
@@ -17,7 +16,6 @@ func checkError(err error) {
 		panic(err)
 	}
 }
-
 // func getRequestBody(conn net.Conn) []byte {
 // 	sizeBytes := make([]byte, 4)
 // 	_, err := io.ReadFull(conn, sizeBytes)
