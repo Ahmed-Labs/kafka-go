@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 	"net"
 )
@@ -48,4 +49,13 @@ func getRequestMessage(conn net.Conn) RequestMessage {
 	return RequestMessage{
 		header: header,
 	}
+}
+
+func (r RequestMessage) printHeader() {
+	fmt.Println("Received request. Request header:")
+	fmt.Println("size:", r.header.size)
+	fmt.Println("requestApiKey:", r.header.requestApiKey)
+	fmt.Println("requestApiVersion:", r.header.requestApiVersion)
+	fmt.Println("correlationID:", r.header.correlationID)
+	fmt.Println("clientID:", r.header.clientID)
 }
