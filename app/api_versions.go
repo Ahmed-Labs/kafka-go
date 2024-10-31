@@ -2,22 +2,34 @@ package main
 
 import "encoding/binary"
 
-
-var supportedApiKeys = []int16{18, 19}
-
-const (
-	minVersion int16 = 0
-	maxVersion int16 = 4
-)
-
 type ApiVersion struct {
-	ApiKey     int16
+	ApiKey     ApiKey
 	MinVersion int16
 	MaxVersion int16
 }
 
 type ApiVersionsResponse struct {
 	apiVersions []ApiVersion
+}
+
+type ApiKey int16
+
+const (
+	API_VERSIONS              ApiKey = 18
+	DESCRIBE_TOPIC_PARTITIONS ApiKey = 75
+)
+
+var SupportedApiVersions = []ApiVersion{
+	{
+		ApiKey:     API_VERSIONS,
+		MinVersion: 0,
+		MaxVersion: 4,
+	},
+	{
+		ApiKey:     DESCRIBE_TOPIC_PARTITIONS,
+		MinVersion: 0,
+		MaxVersion: 0,
+	},
 }
 
 func (r ApiVersionsResponse) serialize() []byte {

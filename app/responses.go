@@ -6,7 +6,6 @@ import (
 	"net"
 )
 
-
 type ResponseHeader struct {
 	correlationID int32
 }
@@ -23,16 +22,8 @@ type SerializableResponse interface {
 
 func NewResponseBody(apiKey int16) SerializableResponse {
 	switch apiKey {
-	case 18: // ApiVersionsRequest
-		apiVersions := make([]ApiVersion, len(supportedApiKeys))
-		for i, key := range supportedApiKeys {
-			apiVersions[i] = ApiVersion{
-				ApiKey:     key,
-				MinVersion: minVersion,
-				MaxVersion: maxVersion,
-			}
-		}
-		return ApiVersionsResponse{apiVersions: apiVersions}
+	case int16(API_VERSIONS):
+		return ApiVersionsResponse{apiVersions: SupportedApiVersions}
 	default:
 		return nil
 	}
@@ -56,7 +47,7 @@ func (r ResponseMessage) serialize() []byte {
 	}
 
 	serializedBody = append(serializedBody, []byte{0, 0, 0, 0}...) // Throttle time
-	serializedBody = append(serializedBody, 0) // Tag buffer
+	serializedBody = append(serializedBody, 0)                     // Tag buffer
 
 	messageSize := len(serializedHeader) + len(serializedBody)
 	message := make([]byte, 4+messageSize) // messageSize itself is 4 bytes

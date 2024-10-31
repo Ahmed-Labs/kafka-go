@@ -17,16 +17,16 @@ func handleConnection(conn net.Conn) {
 	for {
 		requestMessage := getRequestMessage(conn)
 		requestMessage.printHeader()
-	
+
 		responseMessage := ResponseMessage{}
 		responseMessage.header = ResponseHeader{
 			correlationID: requestMessage.header.correlationID,
 		}
-	
+
 		if err := requestMessage.header.validate(); err != NONE {
 			responseMessage.errorCode = UNSUPPORTED_VERSION
 		}
-	
+
 		responseMessage.body = NewResponseBody(requestMessage.header.requestApiKey)
 		serializedResponseMessage := responseMessage.serialize()
 		sendResponse(conn, serializedResponseMessage)
