@@ -6,79 +6,54 @@ import (
 	"net"
 )
 
-type ResponseHeader struct {
+type ResponseHeader interface {
+	serialize() []byte
+}
+
+type ResponseHeaderV0 struct {
 	correlationID int32
 }
 
-type ResponseMessage struct {
-	header    ResponseHeader
-	body      SerializableResponse
-	errorCode ErrorCode
+type ResponseHeaderV1 struct {
+	correlationID int32
+	tagBuffer     byte
 }
 
 type SerializableResponse interface {
 	serialize() []byte
 }
 
-func NewResponseBody(req RequestMessage) SerializableResponse {
+type ResponseMessage struct {
+	header ResponseHeader
+	body   SerializableResponse
+}
+
+func NewResponse(req RequestMessage) *ResponseMessage {
+	response := ResponseMessage{}
 	apiKey := req.header.requestApiKey
-	requestBody := req.body
-	requestHeader := req.header
 
 	switch apiKey {
 	case API_VERSIONS:
-		var err ErrorCode = NONE
-		v := requestHeader.requestApiVersion
-
-		for _, version := range(SupportedApiVersions) {
-			if version.ApiKey != apiKey {
-				continue
-			}
-			if !(v >= version.MinVersion && v <= version.MaxVersion) {
-				err = UNSUPPORTED_VERSION
-				break
-			}
-		}
-		return ApiVersionsResponse{
-			apiVersions: SupportedApiVersions,
-			errorCode: err,
-		}
-
+		response.body = buildApiVersionsResponse(req)
+		response.header = ResponseHeaderV0{correlationID: req.header.correlationID}
 	case DESCRIBE_TOPIC_PARTITIONS:
-		reqBody := requestBody.(*DescribeTopicPartitionsRequest)
-		response := DescribeTopicPartitionsResponse{}
-
-		for _, topicName := range reqBody.TopicNames {
-			fmt.Println("Topic name: ", topicName, len(topicName))
-			details := TopicPartitionDetails{
-				errorCode:            UNKNOWN_TOPIC_OR_PARTITION,
-				topicName:            topicName,
-				topicID:              DEFAULT_TOPIC_ID,
-				isInternal:           false,
-				partitions:           []int{},
-				authorizedOperations: DEFAULT_AUTHORIZED_OPERATIONS,
-			}
-
-			if foundTopic, ok := GlobalTopics[topicName]; ok {
-				details.errorCode = NONE
-				details.topicID = foundTopic.ID
-				details.partitions = foundTopic.Partitions
-			}
-			response.TopicPartitions = append(response.TopicPartitions, details)
-		}
-		fmt.Println("Response topic partitions: ", response.TopicPartitions)
-		return response
+		response.body = buildDescribeTopicPartitionsResponse(req)
+		response.header = ResponseHeaderV1{correlationID: req.header.correlationID}
 	}
 
-	return nil
+	return &response
 }
 
-func (rs ResponseHeader) serialize() []byte {
-	header := make([]byte, 4) 
+func (rs ResponseHeaderV0) serialize() []byte {
+	header := make([]byte, 4)
 	binary.BigEndian.PutUint32(header, uint32(rs.correlationID))
+	return header
+}
 
-	// Extra byte for tag buffer
-	// header = append(header, 0)
+func (rs ResponseHeaderV1) serialize() []byte {
+	header := make([]byte, 4)
+	binary.BigEndian.PutUint32(header, uint32(rs.correlationID))
+	header = append(header, rs.tagBuffer)
 	return header
 }
 

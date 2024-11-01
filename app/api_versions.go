@@ -2,6 +2,13 @@ package main
 
 import "encoding/binary"
 
+type ApiKey int16
+
+const (
+	API_VERSIONS              ApiKey = 18
+	DESCRIBE_TOPIC_PARTITIONS ApiKey = 75
+)
+
 type ApiVersion struct {
 	ApiKey     ApiKey
 	MinVersion int16
@@ -10,15 +17,8 @@ type ApiVersion struct {
 
 type ApiVersionsResponse struct {
 	apiVersions []ApiVersion
-	errorCode ErrorCode
+	errorCode   ErrorCode
 }
-
-type ApiKey int16
-
-const (
-	API_VERSIONS              ApiKey = 18
-	DESCRIBE_TOPIC_PARTITIONS ApiKey = 75
-)
 
 var SupportedApiVersions = []ApiVersion{
 	{
@@ -39,7 +39,7 @@ func (r ApiVersionsResponse) serialize() []byte {
 	// Set error code
 	body = binary.BigEndian.AppendUint16(body, uint16(r.errorCode))
 
-	numApiVersions := len(r.apiVersions)+1
+	numApiVersions := len(r.apiVersions) + 1
 	body = append(body, byte(numApiVersions))
 
 	for _, version := range r.apiVersions {
@@ -48,7 +48,7 @@ func (r ApiVersionsResponse) serialize() []byte {
 		body = binary.BigEndian.AppendUint16(body, uint16(version.MaxVersion))
 
 		// Compact array tag buffer
-		body = append(body, 0) 
+		body = append(body, 0)
 	}
 
 	// Throttle time
@@ -57,4 +57,24 @@ func (r ApiVersionsResponse) serialize() []byte {
 	// Tag buffer
 	body = append(body, 0)
 	return body
+}
+
+func buildApiVersionsResponse(req RequestMessage) ApiVersionsResponse {
+	var err ErrorCode = NONE
+	v := req.header.requestApiVersion
+	apiKey := req.header.requestApiKey
+
+	for _, version := range SupportedApiVersions {
+		if version.ApiKey != apiKey {
+			continue
+		}
+		if !(v >= version.MinVersion && v <= version.MaxVersion) {
+			err = UNSUPPORTED_VERSION
+			break
+		}
+	}
+	return ApiVersionsResponse{
+		apiVersions: SupportedApiVersions,
+		errorCode:   err,
+	}
 }

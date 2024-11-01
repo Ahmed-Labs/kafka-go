@@ -18,12 +18,8 @@ func handleConnection(conn net.Conn) {
 		requestMessage := getRequestMessage(conn)
 		requestMessage.printHeader()
 
-		responseMessage := ResponseMessage{}
-		responseMessage.header = ResponseHeader{
-			correlationID: requestMessage.header.correlationID,
-		}
-		responseMessage.body = NewResponseBody(requestMessage)
-		sendResponse(conn, responseMessage)
+		responseMessage := NewResponse(requestMessage)
+		sendResponse(conn, *responseMessage)
 	}
 }
 
