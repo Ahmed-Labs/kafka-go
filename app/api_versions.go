@@ -60,7 +60,7 @@ func (r ApiVersionsResponse) serialize() []byte {
 }
 
 func buildApiVersionsResponse(req RequestMessage) ApiVersionsResponse {
-	var err ErrorCode = NONE
+	var err ErrorCode = ERR_NONE
 	v := req.header.requestApiVersion
 	apiKey := req.header.requestApiKey
 
@@ -69,7 +69,7 @@ func buildApiVersionsResponse(req RequestMessage) ApiVersionsResponse {
 			continue
 		}
 		if !(v >= version.MinVersion && v <= version.MaxVersion) {
-			err = UNSUPPORTED_VERSION
+			err = ERR_UNSUPPORTED_VERSION
 			break
 		}
 	}
