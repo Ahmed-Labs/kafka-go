@@ -59,12 +59,13 @@ func getTopic(topicName string) (topic Topic) {
 func getTopicPartitions(topicID UUID) []Partition {
 	records := getRecords()
 	partitions := []Partition{}
+	var currIdx int32
 
-	for i, record := range records.PartitionRecords {
+	for _, record := range records.PartitionRecords {
 		if record.topicUUID == topicID {
 			partition := Partition{
 				errorCode:              0,
-				partitionIndex:         int32(i),
+				partitionIndex:         currIdx,
 				leaderID:               record.leader,
 				leaderEpoch:            record.leaderEpoch,
 				replicaNodes:           record.replicaNodes,
@@ -75,6 +76,7 @@ func getTopicPartitions(topicID UUID) []Partition {
 				tagBuffer:              0,
 			}
 			partitions = append(partitions, partition)
+			currIdx++
 		}
 	}
 	return partitions
