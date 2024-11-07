@@ -1,11 +1,14 @@
 package main
 
-import "fmt"
+import (
+	"encoding/binary"
+	"fmt"
+)
 
 var (
-	TopicNameToID                   = map[string]UUID{}
-	DEFAULT_TOPIC_ID                               = UUID{0}
-	DEFAULT_AUTHORIZED_OPERATIONS                  = [4]byte{0, 0, 0x0d, 0xf8}
+	TopicNameToID                 = map[string]UUID{}
+	DEFAULT_TOPIC_ID              = UUID{0}
+	DEFAULT_AUTHORIZED_OPERATIONS = [4]byte{0, 0, 0x0d, 0xf8}
 )
 
 type UUID [16]byte
@@ -25,19 +28,15 @@ type Partition struct {
 	partitionIndex         int32
 	leaderID               ReplicaID
 	leaderEpoch            int32
-	replicaNodes           []ReplicaNode
-	isrNodes               []ReplicaNode
-	eligibleLeaderReplicas []ReplicaNode
-	lastKnownELR           []ReplicaNode
-	offlineReplicas        []ReplicaNode
+	replicaNodes           []ReplicaID
+	isrNodes               []ReplicaID
+	eligibleLeaderReplicas []ReplicaID
+	lastKnownELR           []ReplicaID
+	offlineReplicas        []ReplicaID
 	tagBuffer              byte
 }
 
 type ReplicaID int32
-
-type ReplicaNode struct {
-	ID ReplicaID
-}
 
 func getTopic(topicName string) (topic Topic) {
 	ID, err := getTopicID(topicName)
@@ -64,16 +63,16 @@ func getTopicPartitions(topicID UUID) []Partition {
 	for i, record := range records.PartitionRecords {
 		if record.topicUUID == topicID {
 			partition := Partition{
-				errorCode: 0,
-				partitionIndex: int32(i),
-				leaderID: record.leader,
-				leaderEpoch: record.leaderEpoch,
-				replicaNodes: record.replicaNodes,
-				isrNodes: record.isrNodes,
-				eligibleLeaderReplicas: []ReplicaNode{},
-				lastKnownELR: []ReplicaNode{},
-				offlineReplicas: []ReplicaNode{},
-				tagBuffer: 0,
+				errorCode:              0,
+				partitionIndex:         int32(i),
+				leaderID:               record.leader,
+				leaderEpoch:            record.leaderEpoch,
+				replicaNodes:           record.replicaNodes,
+				isrNodes:               record.isrNodes,
+				eligibleLeaderReplicas: []ReplicaID{},
+				lastKnownELR:           []ReplicaID{},
+				offlineReplicas:        []ReplicaID{},
+				tagBuffer:              0,
 			}
 			partitions = append(partitions, partition)
 		}
@@ -99,4 +98,32 @@ func getTopicID(topicName string) (UUID, error) {
 	}
 
 	return TopicNameToID[topicName], nil
+}
+
+func (p Partition) serialize() []byte {
+	res := []byte{}
+
+	res = binary.BigEndian.AppendUint16(res, uint16(p.errorCode))
+	res = binary.BigEndian.AppendUint32(res, uint32(p.partitionIndex))
+	res = binary.BigEndian.AppendUint32(res, uint32(p.leaderID))
+	res = binary.BigEndian.AppendUint32(res, uint32(p.leaderEpoch))
+
+	replicaNodes := encodeCompactArray(p.replicaNodes, binary.BigEndian.AppendUint32)
+	res = append(res, replicaNodes...)
+
+	isrNodes := encodeCompactArray(p.isrNodes, binary.BigEndian.AppendUint32)
+	res = append(res, isrNodes...)
+
+	eligibleLeaders := encodeCompactArray(p.eligibleLeaderReplicas, binary.BigEndian.AppendUint32)
+	res = append(res, eligibleLeaders...)
+
+	lastKnownELR := encodeCompactArray(p.lastKnownELR, binary.BigEndian.AppendUint32)
+	res = append(res, lastKnownELR...)
+
+	offlineReplicas := encodeCompactArray(p.offlineReplicas, binary.BigEndian.AppendUint32)
+	res = append(res, offlineReplicas...)
+
+	res = append(res, p.tagBuffer)
+
+	return res
 }

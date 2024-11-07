@@ -3,35 +3,27 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 )
 
 // Response
 type DescribeTopicPartitionsResponse struct {
-	TopicPartitions []TopicPartitionDetails
-}
-
-type TopicPartitionDetails struct {
-	errorCode            ErrorCode
-	topicName            string
-	topicID              [16]byte
-	isInternal           bool
-	partitions           []int
-	authorizedOperations [4]byte
+	throttleTime int32
+	Topics       []Topic
+	nextCursor   byte
+	tagBuffer    byte
 }
 
 func (r DescribeTopicPartitionsResponse) serialize() []byte {
 	res := []byte{}
 
 	// Throttle Time
-	res = append(res, []byte{0, 0, 0, 0}...)
-	// Topics Array
-	arrayLength := len(r.TopicPartitions) + 1
-	res = append(res, byte(arrayLength))
-	fmt.Println("Array len:", byte(arrayLength))
-	fmt.Println("Current:", res)
+	res = binary.BigEndian.AppendUint32(res, uint32(r.throttleTime))
 
-	for _, details := range r.TopicPartitions {
+	// Topics Array
+	arrayLength := len(r.Topics) + 1
+	res = append(res, byte(arrayLength))
+
+	for _, details := range r.Topics {
 		// Error code
 		res = binary.BigEndian.AppendUint16(res, uint16(details.errorCode))
 		// Topic Name
@@ -45,47 +37,41 @@ func (r DescribeTopicPartitionsResponse) serialize() []byte {
 			internal = 0x11
 		}
 		res = append(res, internal)
-		// Partitions Array (ADD COMPACT ARRAY ENCODER lATER!!)
+
+		// Partitions Array
 		arrayLength := len(details.partitions) + 1
 		res = append(res, byte(arrayLength))
+
+		for _, partition := range details.partitions {
+			res = append(res, partition.serialize()...)
+		}
+
 		// Topic Authorized Operations
 		res = append(res, details.authorizedOperations[:]...)
 		// Tag Buffer
-		var tagBuffer byte = 0
-		res = append(res, tagBuffer)
+		res = append(res, details.tagBuffer)
 	}
 	// Next Cursor
-	var cursor byte = 0xff // (null)
-	res = append(res, cursor)
+	res = append(res, r.nextCursor)
 	// Tag Buffer
-	var tagBuffer byte = 0
-	res = append(res, tagBuffer)
+	res = append(res, r.tagBuffer)
 
 	return res
 }
 
 func buildDescribeTopicPartitionsResponse(req RequestMessage) DescribeTopicPartitionsResponse {
 	reqBody := req.body.(*DescribeTopicPartitionsRequest)
-	response := DescribeTopicPartitionsResponse{}
+	response := DescribeTopicPartitionsResponse{
+		throttleTime: 0,
+		nextCursor:   0xff,
+		tagBuffer:    0,
+	}
 
 	for _, topicName := range reqBody.TopicNames {
-		details := TopicPartitionDetails{
-			errorCode:            UNKNOWN_TOPIC_OR_PARTITION,
-			topicName:            topicName,
-			topicID:              DEFAULT_TOPIC_ID,
-			isInternal:           false,
-			partitions:           []int{},
-			authorizedOperations: DEFAULT_AUTHORIZED_OPERATIONS,
-		}
-
-		if foundTopic, ok := GlobalTopics[topicName]; ok {
-			details.errorCode = NONE
-			details.topicID = foundTopic.ID
-			details.partitions = foundTopic.Partitions
-		}
-		response.TopicPartitions = append(response.TopicPartitions, details)
+		topic := getTopic(topicName)
+		response.Topics = append(response.Topics, topic)
 	}
-	fmt.Println("Response topic partitions: ", response.TopicPartitions)
+
 	return response
 }
 
@@ -118,8 +104,8 @@ func (r *DescribeTopicPartitionsRequest) deserialize(data []byte) {
 		binary.Read(buf, binary.BigEndian, &topicTagBuffer)
 	}
 
-	responsePartitionLimit := make([]byte, 4)
-	buf.Read(responsePartitionLimit)
+	var responsePartitionLimit int32
+	binary.Read(buf, binary.BigEndian, &responsePartitionLimit)
 
 	var cursor, tagBuffer byte
 	binary.Read(buf, binary.BigEndian, &cursor)
