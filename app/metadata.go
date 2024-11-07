@@ -161,7 +161,7 @@ func readRecord(inBuf *bytes.Buffer) Record {
 	checkError(err)
 
 	keyLength := readSignedVarint(buf)
-	
+
 	if keyLength > 0 {
 		key := make([]byte, keyLength)
 		err = binary.Read(buf, binary.BigEndian, &key)

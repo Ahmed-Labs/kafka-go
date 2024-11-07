@@ -5,6 +5,7 @@ import "encoding/binary"
 type ApiKey int16
 
 const (
+	FETCH                     ApiKey = 1
 	API_VERSIONS              ApiKey = 18
 	DESCRIBE_TOPIC_PARTITIONS ApiKey = 75
 )
@@ -30,6 +31,11 @@ var SupportedApiVersions = []ApiVersion{
 		ApiKey:     DESCRIBE_TOPIC_PARTITIONS,
 		MinVersion: 0,
 		MaxVersion: 0,
+	},
+	{
+		ApiKey:     FETCH,
+		MinVersion: 0,
+		MaxVersion: 16,
 	},
 }
 
