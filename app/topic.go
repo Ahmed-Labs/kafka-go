@@ -38,7 +38,7 @@ type Partition struct {
 
 type ReplicaID int32
 
-func getTopic(topicName string) (topic Topic) {
+func getTopicByName(topicName string) (topic Topic) {
 	ID, err := getTopicID(topicName)
 
 	if err != nil {
@@ -53,6 +53,24 @@ func getTopic(topicName string) (topic Topic) {
 	topic.authorizedOperations = DEFAULT_AUTHORIZED_OPERATIONS
 	topic.tagBuffer = 0
 
+	return topic
+}
+
+func getTopicByID(topicID UUID) (topic Topic) {
+	topic.topicID = topicID
+	topic.isInternal = false
+	topic.authorizedOperations = DEFAULT_AUTHORIZED_OPERATIONS
+	topic.tagBuffer = 0
+	
+	records := getRecords()
+	for _, record := range(records.TopicRecords) {
+		if record.topicUUID == topicID {
+			topic.topicName = record.topicName
+			return topic
+		}
+	}
+	
+	topic.errorCode = ERR_UNKNOWN_TOPIC
 	return topic
 }
 

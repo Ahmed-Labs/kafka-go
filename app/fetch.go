@@ -28,7 +28,7 @@ type FetchResponsePartition struct {
 	logStartOffset int64
 	abortedTransactions []FetchResponseAbortedTransaction
 	preferredReadReplica ReplicaID
-	records []int
+	records byte
 	tagBuffer byte
 }
 
@@ -87,7 +87,7 @@ func (f FetchResponsePartition) serialize() []byte {
 	out = binary.BigEndian.AppendUint32(out, uint32(f.preferredReadReplica))
 
 	// Compact records
-	out = append(out, 0)
+	out = append(out, f.records)
 
 	out = append(out, f.tagBuffer)
 	return out
@@ -104,7 +104,34 @@ func (f FetchResponseAbortedTransaction) serialize() []byte {
 
 
 func buildFetchResposne(req RequestMessage) FetchResponse {
-	return FetchResponse{}
+	reqBody := req.body.(*FetchRequest)
+	res :=  FetchResponse{
+		throttleTime: 0,
+		sessionID: reqBody.sessionID,
+	}
+
+	for _, topic := range(reqBody.topics) {
+		foundTopic := getTopicByID(topic.topicID)
+
+		err := ERR_NONE
+		if foundTopic.errorCode != ERR_NONE {
+			err = foundTopic.errorCode
+		}
+
+		responseTopic := FetchResponseTopic{
+			topicID: topic.topicID,
+		}
+		for _, partition := range(topic.partitions) {
+			responsePartition := FetchResponsePartition{
+				partitionIndex: partition.partition,
+				errorCode: err,
+			}
+			responseTopic.partitions = append(responseTopic.partitions, responsePartition)
+		}
+		res.responses = append(res.responses, responseTopic)
+	}
+
+	return res
 }
 
 // Request

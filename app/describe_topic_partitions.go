@@ -68,7 +68,7 @@ func buildDescribeTopicPartitionsResponse(req RequestMessage) DescribeTopicParti
 	}
 
 	for _, topicName := range reqBody.TopicNames {
-		topic := getTopic(topicName)
+		topic := getTopicByName(topicName)
 		response.Topics = append(response.Topics, topic)
 	}
 
