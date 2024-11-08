@@ -39,6 +39,9 @@ func NewResponse(req RequestMessage) *ResponseMessage {
 	case DESCRIBE_TOPIC_PARTITIONS:
 		response.body = buildDescribeTopicPartitionsResponse(req)
 		response.header = ResponseHeaderV1{correlationID: req.header.correlationID}
+	case FETCH:
+		response.body = buildFetchResposne(req)
+		response.header = ResponseHeaderV1{correlationID: req.header.correlationID}
 	}
 
 	return &response

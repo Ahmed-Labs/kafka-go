@@ -28,6 +28,8 @@ func getRequestBody(apiKey ApiKey) RequestBody {
 	switch apiKey {
 	case DESCRIBE_TOPIC_PARTITIONS:
 		return &DescribeTopicPartitionsRequest{}
+	case FETCH:
+		return &FetchRequest{}
 	default:
 		return nil
 	}
@@ -67,6 +69,7 @@ func getRequestMessage(conn net.Conn) RequestMessage {
 	if body != nil {
 		body.deserialize(data[bodyIdx:])
 	}
+	fmt.Printf("Request Body: %+v\n", body)
 
 	return RequestMessage{
 		header: header,
