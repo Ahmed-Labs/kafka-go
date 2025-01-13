@@ -86,7 +86,11 @@ type CompactArrayElement interface {
 	deserialize(buf *bytes.Buffer)
 }
 
-func readCustomComapctArray(buf *bytes.Buffer, newElement func()CompactArrayElement) []CompactArrayElement {
+func NewCompactArrayElement(in interface{}) CompactArrayElement {
+	return in.(CompactArrayElement)
+}
+
+func readCustomComapctArray(buf *bytes.Buffer, ele CompactArrayElement) []CompactArrayElement {
 	var arrLenByte byte
 	err := binary.Read(buf, binary.BigEndian, &arrLenByte)
 	checkError(err)
@@ -94,12 +98,12 @@ func readCustomComapctArray(buf *bytes.Buffer, newElement func()CompactArrayElem
 	arrLen := max(0, int(arrLenByte)-1)
 	out := []CompactArrayElement{}
 
-	for range(arrLen) {
-		element := newElement()
+	for range arrLen {
+		element := ele
 		element.deserialize(buf)
 		out = append(out, element)
 	}
-	
+
 	return out
 }
 
